@@ -1,4 +1,3 @@
-(cd "$(git rev-parse --show-toplevel)" && git apply --3way <<'EOF'
 diff --git a/README.md b/README.md
 --- a/README.md
 +++ b/README.md
@@ -273,5 +272,3 @@ diff --git a/README.md b/README.md
 +## License
 +
 +This project is open source and available under the MIT License.
-EOF
-)
