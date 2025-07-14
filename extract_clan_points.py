@@ -2,7 +2,7 @@
 """
 Improved Clan Points OCR Extractor
 Extracts player names and points from screenshots using Tesseract OCR
-Optimized for Linux with better preprocessing and error handling
+Cross-platform compatible (Windows, Linux, macOS)
 """
 
 import pytesseract
@@ -13,18 +13,71 @@ import os
 import sys
 import cv2
 import numpy as np
+import platform
 
 # Configuration
 INPUT_IMAGE = "points.jpg"
 OUTPUT_CSV = "clan_points.csv"
 DEBUG_MODE = True  # Set to True to see OCR output and debug info
 
+# Configure Tesseract path for different operating systems
+def configure_tesseract():
+    """Configure Tesseract executable path based on the operating system"""
+    system = platform.system().lower()
+    
+    if system == "windows":
+        # Common Windows Tesseract installation paths
+        possible_paths = [
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            r"C:\Users\{}\AppData\Local\Programs\Tesseract-OCR\tesseract.exe".format(os.getenv('USERNAME', '')),
+            r"C:\tesseract\tesseract.exe"
+        ]
+        
+        # Try to find Tesseract in common locations
+        for path in possible_paths:
+            if os.path.exists(path):
+                pytesseract.pytesseract.tesseract_cmd = path
+                print(f"🔧 Found Tesseract at: {path}")
+                return True
+        
+        # If not found, try system PATH
+        try:
+            pytesseract.get_tesseract_version()
+            print("🔧 Using Tesseract from system PATH")
+            return True
+        except:
+            print("❌ Tesseract not found. Please install Tesseract OCR:")
+            print("   Download from: https://github.com/UB-Mannheim/tesseract/wiki")
+            print("   Or install using: winget install UB-Mannheim.Tesseract")
+            return False
+    
+    elif system in ["linux", "darwin"]:  # Linux or macOS
+        # Try system PATH first
+        try:
+            pytesseract.get_tesseract_version()
+            print("🔧 Using Tesseract from system PATH")
+            return True
+        except:
+            if system == "linux":
+                print("❌ Tesseract not found. Install with: sudo apt-get install tesseract-ocr")
+            else:  # macOS
+                print("❌ Tesseract not found. Install with: brew install tesseract")
+            return False
+    
+    return True
+
 def check_dependencies():
     """Check if all required dependencies are available"""
     try:
         import pytesseract
         import cv2
-        # Test if tesseract is available
+        
+        # Configure Tesseract for the current OS
+        if not configure_tesseract():
+            return False
+            
+        # Test if tesseract is working
         pytesseract.get_tesseract_version()
         print("✅ All dependencies are available")
         return True
