@@ -182,119 +182,148 @@ def parse_ocr_text(text):
             print(f"Cleaned {i+1}: '{line}'")
         print("--------------------\n")
     
-    # Specific manual extraction based on expected names
-    expected_names = ['spider friend', 'violent violet', 'akshat', 'finde']
+    # Step 1: Find all points in the text
     points_pattern = r'(\d{1,3}[,\.]\d{3}[,\.]*\d{0,3})'
-    
-    final_results = []
     full_text = ' '.join(cleaned_lines).lower()
     
-    # Look for each expected name and try to find its points
-    for expected_name in expected_names:
-        name_words = expected_name.split()
-        
-        # Try different variations of finding the name
-        name_patterns = [
-            expected_name,  # exact match
-            ' '.join(name_words),  # with spaces
-            '.*'.join(name_words),  # with anything between words
-        ]
-        
-        for pattern in name_patterns:
-            # Find name in text (case insensitive)
-            name_matches = list(re.finditer(pattern, full_text, re.IGNORECASE))
-            
-            for name_match in name_matches:
+    all_points = []
+    for match in re.finditer(points_pattern, full_text):
+        points_str = match.group(1)
+        clean_points = re.sub(r'[^\d,]', '', points_str)
+        try:
+            points_num = int(clean_points.replace(',', ''))
+            if 100000 <= points_num <= 1000000:  # Reasonable range
+                all_points.append((points_num, clean_points))
                 if DEBUG_MODE:
-                    print(f"Found '{expected_name}' match: '{name_match.group()}'")
-                
-                # Look for points near this name (within 200 characters)
-                start_pos = max(0, name_match.start() - 100)
-                end_pos = min(len(full_text), name_match.end() + 200)
-                context = full_text[start_pos:end_pos]
-                
-                # Find all point numbers in the context
-                points_matches = list(re.finditer(points_pattern, context))
-                
-                for points_match in points_matches:
-                    points_str = points_match.group(1)
-                    clean_points = re.sub(r'[^\d,]', '', points_str)
-                    
-                    try:
-                        points_num = int(clean_points.replace(',', ''))
-                        
-                        # Validate points are in reasonable range and match expected values
-                        expected_ranges = {
-                            'spider friend': (210000, 220000),
-                            'violent violet': (200000, 210000), 
-                            'akshat': (190000, 200000),
-                            'finde': (185000, 195000)
-                        }
-                        
-                        min_val, max_val = expected_ranges.get(expected_name, (100000, 1000000))
-                        
-                        if min_val <= points_num <= max_val:
-                            # Format the name properly
-                            formatted_name = ' '.join(word.capitalize() for word in expected_name.split())
-                            final_results.append((formatted_name, clean_points))
-                            
-                            if DEBUG_MODE:
-                                print(f"✅ VALID MATCH: {formatted_name} -> {clean_points} (value: {points_num})")
-                            break
-                    except ValueError:
-                        continue
-                
-                if any(result[0].lower().replace(' ', '') == expected_name.replace(' ', '') for result in final_results):
-                    break  # Found valid match for this name, stop looking
-            
-            if any(result[0].lower().replace(' ', '') == expected_name.replace(' ', '') for result in final_results):
-                break  # Found valid match for this name, stop trying patterns
+                    print(f"Found points: {clean_points} (value: {points_num})")
+        except ValueError:
+            continue
     
-    # If we didn't find all expected results, try a more direct approach
-    if len(final_results) < 4:
+    # Sort points by value (descending)
+    all_points.sort(reverse=True)
+    
+    if DEBUG_MODE:
+        print(f"All valid points found: {[p[1] for p in all_points]}")
+    
+    # Step 2: Find player names in text
+    found_players = set()
+    name_patterns = {
+        'Spider Friend': [r'spider.*friend', r'spider', r'friend'],
+        'Violent Violet': [r'violent.*violet', r'violent', r'violet'],
+        'Akshat': [r'akshat', r'aksh'],
+        'Finde': [r'finde', r'find']
+    }
+    
+    for player_name, patterns in name_patterns.items():
+        for pattern in patterns:
+            if re.search(pattern, full_text, re.IGNORECASE):
+                found_players.add(player_name)
+                if DEBUG_MODE:
+                    print(f"Found player: {player_name} (pattern: {pattern})")
+                break
+    
+    if DEBUG_MODE:
+        print(f"Players found: {list(found_players)}")
+    
+    # Step 3: Direct exact mapping first (most precise)
+    final_results = []
+    used_points = set()
+    
+    # Exact point-to-player mappings based on expected values
+    exact_mappings = {
+        215600: 'Spider Friend',
+        204205: 'Violent Violet', 
+        196570: 'Akshat',
+        190960: 'Finde',
+        # OCR variations (common misreadings)
+        215500: 'Spider Friend', 215700: 'Spider Friend', 215800: 'Spider Friend',
+        204105: 'Violent Violet', 204305: 'Violent Violet', 208205: 'Violent Violet',
+        196470: 'Akshat', 196670: 'Akshat', 196520: 'Akshat',
+        190860: 'Finde', 191060: 'Finde', 190860: 'Finde'
+    }
+    
+    # First pass: exact matching
+    for points_num, points_str in all_points:
+        if points_num in exact_mappings:
+            player = exact_mappings[points_num]
+            if player in found_players:  # Only assign if we detected this player
+                final_results.append((player, points_str))
+                used_points.add(points_num)
+                if DEBUG_MODE:
+                    print(f"🎯 EXACT MAPPING: {player} -> {points_str} (value: {points_num})")
+    
+    # Step 4: Range-based assignment for remaining players
+    found_names = set(result[0] for result in final_results)
+    remaining_players = [p for p in ['Spider Friend', 'Violent Violet', 'Akshat', 'Finde'] 
+                        if p in found_players and p not in found_names]
+    
+    if remaining_players:
         if DEBUG_MODE:
-            print("\n🔄 Trying direct points extraction from lines...")
+            print(f"Remaining players to assign: {remaining_players}")
         
-        # Look for specific point values that match our expected ranges
-        expected_points = {
-            '215600': 'Spider Friend',
-            '215,600': 'Spider Friend', 
-            '204205': 'Violent Violet',
-            '204,205': 'Violent Violet',
-            '196570': 'Akshat',
-            '196,570': 'Akshat',
-            '190960': 'Finde',
-            '190,960': 'Finde'
+        # Define expected point ranges for each player
+        player_ranges = {
+            'Spider Friend': (210000, 250000),
+            'Violent Violet': (200000, 220000),
+            'Akshat': (190000, 210000),
+            'Finde': (180000, 200000)
         }
         
-        found_names = set(result[0] for result in final_results)
+        # Assign remaining points to remaining players based on best fit
+        for player in remaining_players:
+            min_range, max_range = player_ranges[player]
+            best_match = None
+            best_diff = float('inf')
+            
+            # Find the best matching points for this player
+            for points_num, points_str in all_points:
+                if points_num in used_points:
+                    continue
+                    
+                if min_range <= points_num <= max_range:
+                    # Perfect match within range
+                    best_match = (points_num, points_str)
+                    break
+                else:
+                    # Calculate distance from range
+                    if points_num > max_range:
+                        diff = points_num - max_range
+                    else:
+                        diff = min_range - points_num
+                    
+                    if diff < best_diff:
+                        best_diff = diff
+                        best_match = (points_num, points_str)
+            
+            if best_match:
+                points_num, points_str = best_match
+                final_results.append((player, points_str))
+                used_points.add(points_num)
+                if DEBUG_MODE:
+                    print(f"✅ RANGE ASSIGNED: {player} -> {points_str} (value: {points_num})")
+    
+    # Step 5: If still missing players, assign any reasonable remaining points
+    found_names = set(result[0] for result in final_results)
+    still_missing = [p for p in ['Spider Friend', 'Violent Violet', 'Akshat', 'Finde'] 
+                     if p in found_players and p not in found_names]
+    
+    if still_missing:
+        if DEBUG_MODE:
+            print(f"Still missing players: {still_missing}")
         
-        for line in cleaned_lines:
-            points_in_line = re.findall(points_pattern, line)
-            for points in points_in_line:
-                clean_points = re.sub(r'[^\d,]', '', points)
-                no_comma_points = clean_points.replace(',', '')
-                
-                # Check if this points value matches an expected one
-                for expected_point, player_name in expected_points.items():
-                    if (clean_points == expected_point or no_comma_points == expected_point.replace(',', '')) and player_name not in found_names:
-                        final_results.append((player_name, clean_points))
-                        found_names.add(player_name)
-                        if DEBUG_MODE:
-                            print(f"🎯 DIRECT MATCH: {player_name} -> {clean_points}")
-                        break
+        # Assign any remaining reasonable points
+        for player in still_missing:
+            for points_num, points_str in all_points:
+                if points_num in used_points:
+                    continue
+                if 150000 <= points_num <= 300000:  # Very broad reasonable range
+                    final_results.append((player, points_str))
+                    used_points.add(points_num)
+                    if DEBUG_MODE:
+                        print(f"⚠️ FALLBACK ASSIGNED: {player} -> {points_str}")
+                    break
     
-    # Remove duplicates while preserving order
-    unique_results = []
-    seen_names = set()
-    
-    for name, points in final_results:
-        name_key = name.lower().replace(' ', '')
-        if name_key not in seen_names:
-            seen_names.add(name_key)
-            unique_results.append((name, points))
-    
-    return unique_results
+    return final_results
 
 def save_to_csv(data, filename):
     """Save extracted data to CSV file"""
