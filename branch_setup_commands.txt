@@ -1,0 +1,42 @@
+# Commands to Create Large Image Support Branch
+
+# 1. Navigate to your repository
+cd path/to/your-clan-points-repo
+
+# 2. Create and switch to new branch
+git checkout -b large-image-support
+
+# 3. Create the new files (copy contents from the assistant's responses)
+# - extract_clan_points_large.py (main script)
+# - run_extraction_large.bat (Windows batch file)  
+# - LARGE_IMAGE_VERSION.md (documentation)
+
+# 4. Add files to git
+git add extract_clan_points_large.py
+git add run_extraction_large.bat
+git add LARGE_IMAGE_VERSION.md
+
+# 5. Commit changes
+git commit -m "Add large image OCR support
+
+Features:
+- Fixes 'Image too large' Tesseract errors for clan lists with many members
+- Auto-detects image size and adjusts scaling (4x → 1x as needed)  
+- Chunk processing for extremely large images (32000+ pixels height)
+- Universal player detection (works with any clan member names)
+- Tested with 2070x32982 pixel images
+
+Files added:
+- extract_clan_points_large.py - Main script for large images
+- run_extraction_large.bat - Windows batch runner
+- LARGE_IMAGE_VERSION.md - Documentation
+
+Resolves: Tesseract 'Image too large' error on clan lists with 30+ members"
+
+# 6. Push branch to GitHub
+git push -u origin large-image-support
+
+# 7. Create Pull Request on GitHub
+# - Go to your repository on GitHub
+# - Click "Compare & pull request" 
+# - Add description and create PR
